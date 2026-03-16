@@ -1,3 +1,5 @@
+import time
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -6,6 +8,7 @@ from utils.tools import RAMathUtil
 import math, os, json
 from communication.tcp_client import SimulationClient
 from datetime import datetime, timedelta
+from visualization.tacview_handler import TacView
 
 
 class PointTrackingEnv(gym.Env):
@@ -24,6 +27,7 @@ class PointTrackingEnv(gym.Env):
         """
         super(PointTrackingEnv, self).__init__()
 
+        self.view_server = None
         self.simulation = simulation_client
         self.simulation.connection(scenario="testWzz")
         self.max_steps = max_steps
@@ -208,6 +212,8 @@ class PointTrackingEnv(gym.Env):
         # 如果需要渲染
         if self.render_mode == "human":
             self.render()
+        elif self.render_mode == "real":
+            self.real_time_view()
 
         return state, reward, terminated, truncated, info
 
@@ -280,11 +286,13 @@ class PointTrackingEnv(gym.Env):
 
         # 如果需要渲染
         if self.render_mode == "human":
-            self.render()
+            self.log_save()
+        elif self.render_mode == "real":
+            self.real_time_view()
 
         return state, info
 
-    def render(self, output_dir='logs', output_file='fighter.acmi'):
+    def log_save(self, output_dir='logs', output_file='fighter.acmi'):
         """
         简化的render方法，精确匹配提供的ACMI格式
         """
@@ -371,6 +379,59 @@ class PointTrackingEnv(gym.Env):
             os.remove(output_path)
             print(f"删除已存在的文件: {output_path}")
 
+    def real_time_view(self, host='127.0.0.1', port=42674):
+        """
+        简化的render方法，精确匹配提供的ACMI格式
+        """
+        if self.view_server is None:
+            self.view_server = TacView(host=host, port=port)
+            self._platform_ids = {'1001': '5160'}  # 根据你的数据分配ID
+
+        if not hasattr(self, 'observation') or self.observation is None:
+            return None
+        try:
+            # 解析数据
+            if isinstance(self.observation, str):
+                data = json.loads(self.observation)
+            else:
+                data = self.observation
+
+            platforms = data.get('data', {}).get('0', {}).get('obs', {}).get('platforms', [])
+
+            if not platforms:
+                return None
+
+            # 为每个平台写入数据
+            for i, platform in enumerate(platforms):
+                name = platform.get('name', '1001')
+                # 获取ID映射
+                if name in self._platform_ids:
+                    object_id = self._platform_ids[name]
+                else:
+                    object_id = str(5160 + i)
+                    self._platform_ids[name] = object_id
+
+                # 获取数据
+                lat = platform.get('lat', 0)
+                lon = platform.get('lon', 0)
+                alt = platform.get('alt', 0)
+                roll = platform.get('roll', 0)
+                pitch = platform.get('pitch', 0)
+                heading = platform.get('heading', 0)
+
+                # 构建数据行
+                # 格式: ID,T=时间戳|经度|纬度|高度|滚转|俯仰|偏航,Name=名称,Type=类型,CallSign=呼号,Color=颜色
+                data_line = (f"{object_id},T={lon:.8f}|{lat:.8f}|{alt:.2f}|"
+                             f"{roll:.12f}|{pitch:.12f}|{heading:.6f},"
+                             f"Name=F-16,Type=Air+FixedWing,CallSign=F-16,Color=Red")
+
+                self.view_server.send_data_to_client((data_line + "\n").encode())
+                time.sleep(0.01)
+
+        except Exception as e:
+            print(f"错误: {e}")
+            return None
+
     def close(self):
         """
         关闭环境
@@ -384,6 +445,7 @@ if __name__ == "__main__":
     # 1. 创建环境（Gymnasium版本）
     simulation = SimulationClient(host='127.0.0.1', port=8888, steps=1)
     env = PointTrackingEnv(simulation_client=simulation, max_steps=2000, render_mode="human")
+    # env = PointTrackingEnv(simulation_client=simulation, max_steps=2000, render_mode="real")
 
     # 重置环境，现在返回两个值
     state, info = env.reset()
