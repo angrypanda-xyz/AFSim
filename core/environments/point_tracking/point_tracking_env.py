@@ -211,7 +211,7 @@ class PointTrackingEnv(gym.Env):
 
         # 如果需要渲染
         if self.render_mode == "human":
-            self.render()
+            self.log_save()
         elif self.render_mode == "real":
             self.real_time_view()
 
