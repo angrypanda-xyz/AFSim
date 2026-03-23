@@ -1,4 +1,5 @@
 import socket, os, time
+from utils.tools import RAMathUtil
 
 
 class TacView(object):
@@ -24,17 +25,25 @@ class TacView(object):
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
             print(f"Server listening on {self.host}:{self.port}")
-            print("IMPORTANT: Please open Tacview Advanced, click Record -> Real-time Telemetry, and input the IP address and port !")
+            print(
+                "IMPORTANT: Please open Tacview Advanced, click Record -> Real-time Telemetry, and input the IP address and port !")
             self.connect()
         except Exception as e:
             print(f"Setup error: {e}")
             self.cleanup()
             raise
 
-    def send_data_to_client(self, data):
-
+    def send_data_to_client(self, observation):
         try:
-            self.client_socket.send(data)
+            sim_time = observation["sim_time"]
+            self.client_socket.send((f"#{sim_time:.2f}\n").encode())
+            platforms = observation["platforms"]
+            if not platforms:
+                print("没有平台数据可记录")
+                return
+            for plane in platforms:
+                data_line = RAMathUtil.plane_to_encode(plane)
+                self.client_socket.send(data_line.encode())
         except Exception as e:
             print(f"Send error: {e}")
             self.reconnect()
@@ -52,7 +61,7 @@ class TacView(object):
 
             # 接收客户端响应
             data = self.client_socket.recv(1024)
-            print(f"Received data from {self.address}: {data.decode()}")
+            # print(f"Received data from {self.address}: {data.decode()}")
 
             # 发送头部数据
             current_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -88,17 +97,13 @@ class TacView(object):
 
 
 if __name__ == "__main__":
-    tacview = TacView()
+    viewer = TacView()
     script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # 该acmi进行了处理 将acmi文件头：FileType=text/acmi/tacviewFileVersion=2.20,ReferenceTime=2025-11-12T14:48:44Z 剔除，只传输数据部分
-    # acmi游戏头在 tacview_handler中与 tacview建立连接时传输，详细可见tacview_handler.py中connect函数
-    # 开发者 只需调用 tacview.send_data_to_client(data.encode()) 方法传输数据即可
     current_dir = os.getcwd()
-    acmi_file_path = os.path.join(current_dir, 'F-16_2025-11-12_14-48-44_group1_episode50_acmi copy.acmi')
-    with open(acmi_file_path, 'r') as f:
+    file_path = os.path.join(current_dir, 'F-16.acmi')
+    with open(file_path, 'r') as f:
         lines = f.readlines()
         for line in lines:
-            tacview.send_data_to_client(line.encode())
-            # 每 0.1s 发送一行数据
-            time.sleep(0.1)
+            viewer.client_socket.send(line.encode())
+            # 每 0.01s 发送一行数据
+            time.sleep(0.01)

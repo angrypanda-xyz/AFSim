@@ -18,7 +18,7 @@ class RAMathUtil:
     def convert_lat_long_to_xy(pos_lat_lon, center):
         """
         将经纬度坐标转换为平面笛卡尔坐标
-        :param pos_latlong: 字典，包含 'lat' 和 'lon' 键，表示待转换点的经纬度（度数）
+        :param pos_lat_lon: 字典，包含 'lat' 和 'lon' 键，表示待转换点的经纬度（度数）
         :param center: 字典，包含 'lat' 和 'lon' 键，表示参考中心点的经纬度（度数）
         :return: 字典，包含 'x' 和 'y' 键，表示转换后的平面坐标（米）
         """
@@ -109,6 +109,18 @@ class RAMathUtil:
         }
 
     @staticmethod
+    def convert_aircraft_xyz(plane, center):
+        """
+        将经纬度坐标转换为平面笛卡尔坐标
+        :param plane: 字典，包含 'lat' 和 'lon' 和"alt"键，表示待转换点的经纬度（度数）
+        :param center: 字典，包含 'lat' 和 'lon' 键，表示参考中心点的经纬度（度数）
+        :return: 字典，包含 'x' 和 'y' 键，表示转换后的平面坐标（米）
+        """
+        x, y = RAMathUtil.convert_lat_long_to_xy(plane, center)
+        z = plane["alt"]
+        return x, y, z
+
+    @staticmethod
     def generate_target_arc(current_pos=None, min_dist=12000, max_dist=15000):
         """
         简洁版：在12-15km圆弧内生成随机目标点
@@ -137,6 +149,62 @@ class RAMathUtil:
         target_z = 0
 
         return np.array([target_x, target_y, target_z])
+
+    @staticmethod
+    def generate_target_attitude():
+        """
+        生成随机的目标姿态: pitch/roll/heading/speed
+        返回:
+            target_attitude: 期望姿态  pitch/roll/heading/speed
+        """
+        pitch = np.random.uniform(-1, 1)
+        roll = np.random.uniform(-1, 1)
+        heading = np.random.uniform(-1, 1)
+        speed = np.random.uniform(-1, 1)
+
+        return np.array([pitch, roll, heading, speed])
+
+    @staticmethod
+    def plane_to_encode(plane):
+        plane_id = plane["name"]
+        plane_type = plane["type"]
+        color = plane["side"]
+        lat = plane["lat"]
+        lon = plane["lon"]
+        alt = plane["alt"]
+        roll = plane["roll"]
+        pitch = plane["pitch"]
+        heading = plane["heading"]
+
+        # 格式化数据行
+        if plane_type == "F-16":
+            data_line = (
+                f"{plane_id},"
+                f"T={lon:.8f}|{lat:.8f}|{alt:.2f}|"
+                f"{roll:.12f}|{pitch:.12f}|{heading:.6f},"
+                f"Name={plane_type},Type=Air+FixedWing,"
+                f"CallSign={plane_id},Color={color}\n"
+            )
+        elif plane_type == "AIM-9":
+            data_line = (
+                f"{plane_id},"
+                f"T={lon:.8f}|{lat:.8f}|{alt:.2f}|"
+                f"{roll:.12f}|{pitch:.12f}|{heading:.6f},"
+                f"Name={plane_type},Type=Medium+Weapon+Missile"
+                f"CallSign={plane_id},Color={color}\n"
+            )
+        elif plane_type == "Point":
+            data_line = (
+                f"{plane_id},"
+                f"T={lon:.8f}|{lat:.8f}|{alt:.2f}|"
+                f"{roll:.12f}|{pitch:.12f}|{heading:.6f},"
+                f"Name={plane_type},Type=Navaid+Static+Waypoint,"
+                f"CallSign=Target,Color={color}\n"
+            )
+        else:
+            raise ValueError(f"不支持的环境类型: '{plane_type}'，"
+                             f"支持的类型: 'F-16', 'AIM-9'")
+        return data_line
 
 
 # 定义 一个 TSVector3D
@@ -297,4 +365,3 @@ class TSVector3(BaseTSVector3):
     def groundrange(pos1, pos2):
         return math.sqrt((pos1["X"] - pos1["X"]) * (pos1["X"] - pos1["X"]) + \
                          (pos1["Y"] - pos1["Y"]) * (pos1["Y"] - pos1["Y"]))
-
