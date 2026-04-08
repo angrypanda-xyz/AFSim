@@ -43,7 +43,7 @@ class RAMathUtil:
         return x, y
 
     @staticmethod
-    def convert_xy_to_lat_long(center_lat_lon, delta_x, delta_y, delta_z=0):
+    def convert_xy_to_lat_long(center_lat_lon, delta_x, delta_y, target_z=0.0):
         """
         将相对平面坐标转换为经纬度坐标
 
@@ -51,7 +51,7 @@ class RAMathUtil:
             center_lat_lon: 字典，参考中心点的经纬度 {'lat': xx, 'lon': yy} (度数)
             delta_x: 相对于中心的东向偏移 (米, 东为正)
             delta_y: 相对于中心的北向偏移 (米, 北为正)
-            delta_z: 高度偏移 (米, 可选，默认0)
+            target_z: 高度 (米, 可选，默认0)
 
         返回:
             字典，包含 'lat', 'lon', 'alt' 的目标点坐标
@@ -74,7 +74,7 @@ class RAMathUtil:
             return {
                 'lat': center_lat_lon['lat'],
                 'lon': center_lat_lon['lon'],
-                'alt': alt0 + delta_z
+                'alt': target_z
             }
 
         # 计算方位角 (从北方向顺时针)
@@ -105,7 +105,7 @@ class RAMathUtil:
         return {
             'lat': lat_deg,
             'lon': lon_deg,
-            'alt': alt0 + delta_z
+            'alt': target_z
         }
 
     @staticmethod
@@ -123,7 +123,7 @@ class RAMathUtil:
     @staticmethod
     def generate_target_arc(current_pos=None, min_dist=12000, max_dist=15000):
         """
-        简洁版：在12-15km圆弧内生成随机目标点
+        简洁版：在12-15km圆弧内生成随机目标点,高度随机在5km到10km
 
         参数:
             current_pos: 当前位置 [x, y, z]，默认[0,0,0]
@@ -139,15 +139,17 @@ class RAMathUtil:
 
         # 随机角度 (0到2π)
         angle = np.random.uniform(0, 2 * math.pi)
+        # angle = np.pi/4
 
         # 随机距离 (12-15km)
         distance = np.random.uniform(min_dist, max_dist)
+        # distance = min_dist
 
         # 计算目标点
         target_x = current_pos[0] + distance * math.cos(angle)
         target_y = current_pos[1] + distance * math.sin(angle)
-        target_z = 0
-
+        target_z = np.random.uniform(5000, 15000)
+        # target_z = 10000.0
         return np.array([target_x, target_y, target_z])
 
     @staticmethod
@@ -205,6 +207,75 @@ class RAMathUtil:
             raise ValueError(f"不支持的环境类型: '{plane_type}'，"
                              f"支持的类型: 'F-16', 'AIM-9'")
         return data_line
+
+    @staticmethod
+    def calculate_bearing(lat1, lon1, lat2, lon2):
+        """
+        计算(lat1,lon1)到(lat2,lon2)的方位角并归一化到[-180,180)
+
+        参数:
+            lat1,lon1:点1的经纬度
+            lat2,lon2:点2的经纬度
+        返回:
+            点1到点2的方位角，0表示点2在点1正北方，90正东，-90正西，-180正南
+        """
+        # 转弧度
+        lat1 = math.radians(lat1)
+        lon1 = math.radians(lon1)
+        lat2 = math.radians(lat2)
+        lon2 = math.radians(lon2)
+
+        delta_lon = lon2 - lon1
+
+        x = math.sin(delta_lon) * math.cos(lat2)
+        y = (math.cos(lat1) * math.sin(lat2) -
+             math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon))
+
+        bearing = math.degrees(math.atan2(x, y))
+        bearing = (bearing + 180) % 360 - 180
+        return bearing
+
+    @staticmethod
+    def hyperbolic_function(x, x_min, x_max, lam=0.001, tau=0):
+        """
+        双曲惩罚函数，用于奖励函数设计
+
+        参数:
+            x: 自变量
+            x_min:自变量允许的最小值
+            x_max:自变量允许的最大值
+            lam
+            tau
+
+        返回:
+            函数值
+        """
+        term1 = lam * (x - x_min)
+        term2 = math.sqrt((lam ** 2) * ((x - x_min) ** 2) + (tau ** 2))
+        term3 = lam * (x_max - x)
+        term4 = math.sqrt((lam ** 2) * ((x_max - x) ** 2) + (tau ** 2))
+        return term1 - term2 + term3 - term4
+
+    @staticmethod
+    def angle_sin_cos(sin_val, cos_val):
+        """
+        根据正弦值和余弦值计算角度
+
+        参数:
+            sin_val:正弦值
+            cos_valL:余弦值
+        返回:
+            角度:(-pi,pi]
+        """
+        norm = math.hypot(sin_val, cos_val)  # sqrt(sin^2 + cos^2)
+
+        if norm == 0:
+            return 0.0  # 或 raise Exception
+
+        sin_val /= norm
+        cos_val /= norm
+
+        return math.atan2(sin_val, cos_val)
 
 
 # 定义 一个 TSVector3D
