@@ -62,12 +62,62 @@ class InitClass:
                     }
                 }
             }
+        elif env_name == "multi3v3":
+            init_json = {
+                "count": 1,
+                "scenario": "test1v1",
+                "initial_state": {
+                    # --- 🔴 红方中队 (1001, 1002, 1003) ---
+                    "1001": {"type": "jian20", "side": "Red", "lat": 35.0, "lon": 117.0, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},
+                    "1002": {"type": "jian20", "side": "Red", "lat": 35.05, "lon": 116.95, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "1003": {"type": "jian20", "side": "Red", "lat": 34.95, "lon": 116.95, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 右翼僚机
+                    # --- 🔵 蓝方中队 (5001, 5002, 5003) ---
+                    "5001": {"type": "F-16", "side": "Blue", "lat": 35.0, "lon": 117.6, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},
+                    "5002": {"type": "F-16", "side": "Blue", "lat": 35.05, "lon": 117.65, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "5003": {"type": "F-16", "side": "Blue", "lat": 34.95, "lon": 117.65, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 右翼僚机
+                }
+            }
+        elif env_name == "multi5v5":
+            init_json = {
+                "count": 1,
+                "scenario": "test1v1",
+                "initial_state": {
+                    # --- 🔴 红方中队 (1001, 1002, 1003) ---
+                    "1001": {"type": "jian20", "side": "Red", "lat": 35.0, "lon": 117.0, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},
+                    "1002": {"type": "jian20", "side": "Red", "lat": 35.05, "lon": 116.95, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "1003": {"type": "jian20", "side": "Red", "lat": 34.95, "lon": 116.95, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 右翼僚机
+                    "1004": {"type": "jian20", "side": "Red", "lat": 35.05, "lon": 117.05, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "1005": {"type": "jian20", "side": "Red", "lat": 34.95, "lon": 117.05, "alt": 10000.0,
+                             "heading": 90.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 右翼僚机
+
+                    # --- 🔵 蓝方中队 (5001, 5002, 5003) ---
+                    "5001": {"type": "F-16", "side": "Blue", "lat": 35.0, "lon": 117.6, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},
+                    "5002": {"type": "F-16", "side": "Blue", "lat": 35.05, "lon": 117.65, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "5003": {"type": "F-16", "side": "Blue", "lat": 34.95, "lon": 117.65, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 右翼僚机
+                    "5004": {"type": "F-16", "side": "Blue", "lat": 35.05, "lon": 117.55, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}},  # 左翼僚机
+                    "5005": {"type": "F-16", "side": "Blue", "lat": 34.95, "lon": 117.55, "alt": 10000.0,
+                             "heading": 270.0, "speed": 300.0, "weapons": {"aim9x": 2}}  # 右翼僚机
+                }
+            }
         else:
             init_json = None
         return init_json
 
 
 if __name__ == "__main__":
-    # 调用方式
     result = InitClass.get_parameter("control")
-    print(result)  # 输出：这是一个静态方法返回的参数
+    print(result)
