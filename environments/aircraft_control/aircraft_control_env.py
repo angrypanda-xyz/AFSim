@@ -361,7 +361,7 @@ class AircraftControlEnv(gym.Env):
 # 使用示例
 if __name__ == "__main__":
     # 1. 创建环境（Gymnasium版本）
-    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=6, env_name="control", log_save=True)
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=6, environment="control", log_save=True)
     env = AircraftControlEnv(simulation_client=simulation, max_steps=100, render_mode=None, random_init=True)
     # 重置环境，现在返回两个值
     state, info = env.reset()
