@@ -311,11 +311,10 @@ class DogFight1v1Env(gym.Env):
         # self.simulation.init_payload["initial_state"]["5001"]["roll"] = np.random.uniform(-1, 1) * 90
 
 
-
 # 使用示例
 if __name__ == "__main__":
     # 1. 创建环境（Gymnasium版本）
-    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=10, env_name="dogfight", log_save=True)
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=10, environment="dogfight", log_save=True)
     env = DogFight1v1Env(simulation_client=simulation, max_steps=2000, render_mode=None, random_init=True)
     # 重置环境，现在返回两个值
     state, info = env.reset()
