@@ -6,21 +6,58 @@ from utils.tools import RAMathUtil
 from communication.tcp_client import SimulationClient
 
 
-def attitude_target_reset(attitude, target_attitude):
-    return np.array([
-        find_closest(attitude[0], target_attitude[0]),
-        find_closest(attitude[1], target_attitude[1]),
-        find_closest(attitude[2], target_attitude[2]),
-        find_closest(attitude[3], target_attitude[3])
-    ], dtype=np.float64)
+def cycle_target_reset(current_value, target_value, cycle_value=2):
+    return find_closest(current_value, target_value, cycle_value)
 
 
-def find_closest(value, target):
+def find_closest(value, target, cycle_value=2):
     """
-    计算value距离target-2、target、target+2哪个最近，返回最近的那个数
+    计算value距离target-cycle_value、target、target+cycle_value哪个最近，返回最近的那个数
     """
-    candidates = [target - 2, target, target + 2]
+    candidates = [target - cycle_value, target, target + cycle_value]
     return min(candidates, key=lambda x: abs(x - value))
+
+
+def calculate_approach_reward(previous_value, current_value, target_value,
+                              reward_factor=1.0, overshoot_penalty=2.0):
+    """
+    计算基于接近目标的奖励函数
+
+    Args:
+        previous_value: 前一时刻的值
+        current_value: 当前时刻的值
+        target_value: 目标值
+        reward_factor: 正常接近时的奖励系数（正数）
+        overshoot_penalty: 越过目标时的惩罚系数（正数，最终惩罚为负值）
+
+    Returns:
+        float: 奖励值
+    """
+    # 计算上一时刻和当前时刻到目标值的距离
+    prev_distance = abs(previous_value - target_value)
+    curr_distance = abs(current_value - target_value)
+
+    # 情况1: 当前值比前一时刻更接近目标（距离减小）
+    if curr_distance < prev_distance:
+        # 检查是否穿过了目标（即目标值介于前后值之间）
+        # 判断条件: (previous_value - target_value) * (current_value - target_value) < 0
+        if (previous_value - target_value) * (current_value - target_value) < 0:
+            # 穿过了目标值，给予惩罚
+            return -overshoot_penalty
+        else:
+            # 正常接近，给予正奖励（奖励大小与接近程度成正比）
+            improvement = (prev_distance - curr_distance) / (prev_distance + 1e-6)
+            return reward_factor * improvement
+
+    # 情况2: 当前值比前一时刻更远离目标（距离增大）
+    elif curr_distance > prev_distance:
+        # 给予负奖励，惩罚远离目标的行为
+        degradation = (curr_distance - prev_distance) / (prev_distance + 1e-6)
+        return -reward_factor * degradation
+
+    # 情况3: 距离不变
+    else:
+        return 0.0
 
 
 class AircraftControlEnv(gym.Env):
@@ -28,7 +65,8 @@ class AircraftControlEnv(gym.Env):
     点跟踪环境，用于与仿真平台交互 (Gymnasium版本)
     """
 
-    def __init__(self, simulation_client, max_steps: int = 200, render_mode: Optional[str] = None, random_init: Optional[bool] = False):
+    def __init__(self, simulation_client, max_steps: int = 200, render_mode: Optional[str] = None,
+                 random_init: Optional[bool] = False):
         """
         初始化环境
 
@@ -52,6 +90,7 @@ class AircraftControlEnv(gym.Env):
         self.observation_sequence = []
         self.state_sequence = []
         self.action_sequence = []
+        self.keep_attitude_count = 0
 
         # 定义动作空间：连续动作，控制点的移动 [x, y, z, 其他参数?]
         # 根据你的仿真平台调整维度
@@ -68,7 +107,7 @@ class AircraftControlEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(17,),  # 根据实际观测维度调整
+            shape=(18,),  # 根据实际观测维度调整
             dtype=np.float64
         )
 
@@ -93,71 +132,74 @@ class AircraftControlEnv(gym.Env):
             处理后的观测数组
         """
         plane_info = self.observation["data"]["0"]["obs"]['platforms'][0]
-        pitch = plane_info["pitch"] / 90
-        pitch_rate = plane_info["pitch_rate"] / 180
-        roll = plane_info["roll"] / 90
-        roll_rate = plane_info["roll_rate"] / 180
         heading = plane_info["heading"] / 180
-        speed = (plane_info["speed"] - 200) / 200
-        alt = (plane_info["alt"] - 2000) / 2000
+        pitch = plane_info["pitch"] / 90  # [-90,90] -> [-1,1]
+        pitch_rate = plane_info["pitch_rate"] / 180
+        roll = plane_info["roll"] / 90  # [-90,90] -> [-1,1]
+        roll_rate = plane_info["roll_rate"] / 180
+        speed = plane_info["speed"] / 400  # [0,400] -> [0,1]
+        alt = plane_info["alt"] / 10000  # [0,10000] -> [0,1]
         beta = plane_info["beta"] / 180
         beta_rate = plane_info["beta_rate"] / 180
-        mass = plane_info["mass"] / 4000
-        vx = (plane_info["vx"] - 200) / 200
-        vy = (plane_info["vy"] - 200) / 200
-        vz = (plane_info["vz"] - 200) / 200
-        # print(self.observation)
-        target_attitude = attitude_target_reset(
-            [pitch, roll, heading, speed],
-            plane_info["target_attitude"]
-        )
+        mass = plane_info["mass"] / 4000  # 油量，暂无影响
+        vx = plane_info["vx"] / 400
+        vy = plane_info["vy"] / 400
+        vz = plane_info["vz"] / 400
+        target_heading = cycle_target_reset(heading, plane_info["target_attitude"][0])
+        target_pitch = cycle_target_reset(pitch, plane_info["target_attitude"][1])
+        target_roll = cycle_target_reset(roll, plane_info["target_attitude"][2])
+        target_speed = plane_info["target_attitude"][3]
 
-        return np.array([pitch, pitch_rate, roll, roll_rate, heading, speed, alt,
-                         beta, beta_rate, mass, vx, vy, vz, target_attitude[0],
-                         target_attitude[1], target_attitude[2], target_attitude[3]],
+        return np.array([heading, pitch, roll, speed, alt, beta,
+                         pitch_rate, roll_rate, beta_rate, mass, vx, vy, vz,
+                         target_heading, target_pitch, target_roll, target_speed,
+                         self.keep_attitude_count],
                         dtype=np.float64)
 
     def _calculate_reward(self) -> float:
         """
         计算奖励值
-
-        Args:
-            observation: 当前观测
-
         Returns:
             奖励值
         """
-        state = self.state
-        reward_pitch = -(state[0] - state[13]) ** 2
-        reward_roll = -(state[2] - state[14]) ** 2
-        reward_heading = -(state[4] - state[15]) ** 2
-        reward_speed = -(state[5] - state[16]) ** 2
+        current_state = self.state_sequence[-1]
+        previous_state = self.state_sequence[-2]
+        # reward_heading = -(current_state[0] - current_state[13]) ** 2
+        reward_heading = calculate_approach_reward(previous_state[0], current_state[0], previous_state[13])
+        # reward_pitch = -(current_state[1] - current_state[14]) ** 2
+        reward_pitch = calculate_approach_reward(previous_state[1], current_state[1], previous_state[14])
+        # reward_roll = -(current_state[2] - current_state[15]) ** 2
+        reward_roll = calculate_approach_reward(previous_state[2], current_state[2], previous_state[15])
+        # reward_speed = -(current_state[3] - current_state[16]) ** 2
+        reward_speed = calculate_approach_reward(previous_state[3], current_state[3], previous_state[16])
 
-        total_reward = 0.7 * reward_pitch + 0.1 * reward_roll + reward_heading + 0.3 * reward_speed
-
-        return float(total_reward)
+        # total_reward = 0.7 * reward_pitch + 0.1 * reward_roll + reward_heading + 0.3 * reward_speed
+        total_reward = reward_heading + 0.5 * reward_pitch + 0.05 * reward_speed
+        if reward_heading > -0.0001 and reward_pitch > -0.0001:
+            self.keep_attitude_count += 0.1
+        else:
+            self.keep_attitude_count = 0
+        if self.keep_attitude_count >= 0.5:
+            total_reward = 100.0
+        return float(total_reward)/50
 
     def _check_terminated(self) -> bool:
         """
         检查是否终止（任务完成）
-
-        Args:
-            observation: 当前观测
-
         Returns:
             bool: 是否终止
         """
         # 成功到达目标
-
+        current_state = self.state_sequence[-1]
+        reward_heading = -(current_state[0] - current_state[13]) ** 2
+        reward_pitch = -(current_state[1] - current_state[14]) ** 2
+        if reward_heading > -0.0001 and reward_pitch > -0.0001:
+            return True
         return False
 
     def _check_truncated(self) -> bool:
         """
         检查是否截断（时间耗尽等）
-
-        Args:
-            observation: 当前观测
-
         Returns:
             bool: 是否截断
         """
@@ -233,6 +275,7 @@ class AircraftControlEnv(gym.Env):
 
         # 从options中获取参数
         scenario = "testWzz"
+        self.keep_attitude_count = 0
         target_attitude = None
         self.observation = None
         if options is not None:
@@ -255,8 +298,7 @@ class AircraftControlEnv(gym.Env):
                                                                                                dtype=np.float64)
         else:
             # 随机生成目标位置（可选）
-            random_target_attitude = RAMathUtil.generate_target_attitude()
-            self.target_attitude = random_target_attitude
+            self.target_attitude = RAMathUtil.generate_target_attitude()  # [heading, pitch, roll, speed]
             self.observation['data']['0']['obs']['platforms'][0]["target_attitude"] = self.target_attitude
 
             # self.target_attitude = random_target_attitude
@@ -294,10 +336,10 @@ class AircraftControlEnv(gym.Env):
                 'lon': plane['lon'],
                 'alt': plane['alt'] - 1000,
                 'name': '1002',
-                'heading': plane["target_attitude"][2] * 180,
-                'pitch': plane["target_attitude"][0] * 180,
-                'roll': plane["target_attitude"][1] * 180,
-                'speed': plane["target_attitude"][3] * 180,
+                'heading': plane["target_attitude"][0] * 180,
+                'pitch': plane["target_attitude"][1] * 90,  # 取值范围[-90, 90]
+                'roll': plane["target_attitude"][2] * 90,  # 取值范围[-90, 90]
+                'speed': plane["target_attitude"][3] * 400,  # 取值范围[0, 400]
                 'side': plane['side'],
                 'type': plane['type']
             }
@@ -312,8 +354,8 @@ class AircraftControlEnv(gym.Env):
         """
         self.simulation.init_payload["initial_state"]["1001"]["heading"] = np.random.uniform(-1, 1) * 180
         # AFSim期望的pitch和roll都是[-90,90]
-        # self.simulation.init_payload["initial_state"]["1001"]["pitch"] = np.random.uniform(-1, 1) * 90
-        # self.simulation.init_payload["initial_state"]["1001"]["roll"] = np.random.uniform(-1, 1) * 90
+        self.simulation.init_payload["initial_state"]["1001"]["pitch"] = np.random.uniform(-1, 1) * 90
+        self.simulation.init_payload["initial_state"]["1001"]["roll"] = np.random.uniform(-1, 1) * 90
 
 
 # 使用示例

@@ -26,8 +26,8 @@ AFSim/
 ├── utils/ # 工具模块
 │ └── tools.py # 通用工具函数
 └── visualization/ # 可视化模块
-├── logger_handler.py # 日志处理
-└── tacview_handler.py # Tacview可视化处理
+│ └── logger_handler.py # 日志处理
+│ └── tacview_handler.py # Tacview可视化处理
 ```
 
 ## 环境说明

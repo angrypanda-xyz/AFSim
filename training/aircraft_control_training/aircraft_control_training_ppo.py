@@ -9,12 +9,12 @@ from environments.aircraft_control.aircraft_control_env import AircraftControlEn
 def make_env(log_save=False):
     simulation = SimulationClient(host='127.0.0.1', port=8888, steps=6, env_name="control", log_save=log_save)
     # env = AircraftControlEnv(simulation_client=simulation, max_steps=800, render_mode="human")
-    environment = AircraftControlEnv(simulation_client=simulation, max_steps=200, random_init=True)
+    environment = AircraftControlEnv(simulation_client=simulation, max_steps=400, random_init=True)
     return environment
 
 
 if __name__ == "__main__":
-    train = False
+    train = True
     if train:
         env = DummyVecEnv([make_env])
         # 创建模型

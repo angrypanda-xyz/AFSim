@@ -1,6 +1,5 @@
 from typing import Dict, Type
 from communication.tcp_client import SimulationClient
-
 from aircraft_control.aircraft_control_env import AircraftControlEnv
 from dogfight_1v1.dogfight_1v1_env import DogFight1v1Env
 from point_tracking.point_tracking_env import PointTrackingEnv

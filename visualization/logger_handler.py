@@ -13,10 +13,10 @@ class TacViewLogger:
 
     # 类常量
     DEFAULT_OUTPUT_DIR = 'logs'
-    DEFAULT_OUTPUT_FILE = 'fighter.acmi'
+    DEFAULT_OUTPUT_FILE = 'fighter'
     REQUIRED_PLANE_FIELDS = {'name', 'side', 'lat', 'lon', 'alt', 'roll', 'pitch', 'heading'}
 
-    def __init__(self, output_dir: str = DEFAULT_OUTPUT_DIR, output_file: str = DEFAULT_OUTPUT_FILE):
+    def __init__(self, output_dir: str = DEFAULT_OUTPUT_DIR, output_file: str = DEFAULT_OUTPUT_FILE, env_id=0):
         """
         初始化日志记录器
 
@@ -25,7 +25,7 @@ class TacViewLogger:
             output_file: 输出文件名
         """
         self.output_dir = output_dir
-        self.output_file = output_file
+        self.output_file = output_file+"_"+str(env_id)+".acmi"
         self.output_path = self._get_output_path()
 
         # 设置日志

@@ -1,9 +1,9 @@
 class InitClass:
     @staticmethod
-    def get_parameter(env_name):
+    def get_parameter(env_name, env_num=1):
         if env_name == "control":
             init_json = {
-                "count": 1,  # [整数] 并行生成的环境数量（测试填 1，RL 训练时可以填多个）
+                "count": env_num,  # [整数] 并行生成的环境数量（测试填 1，RL 训练时可以填多个）
                 "scenario": "testWzz",  # / [字符串] 调用的纯净模板名（对应 test1v1.txt）
                 "initial_state": {  # [字典] 动态注入的初始状态，Key 是飞机的 ID
                     "1001": {  # 红方飞机 ID
@@ -24,7 +24,7 @@ class InitClass:
             }
         elif env_name == "dogfight":
             init_json = {
-                "count": 1,  # [整数] 并行生成的环境数量（测试填 1，RL 训练时可以填多个）
+                "count": env_num,  # [整数] 并行生成的环境数量（测试填 1，RL 训练时可以填多个）
                 "scenario": "test1v1",  # / [字符串] 调用的纯净模板名（对应 test1v1.txt）
                 "initial_state": {  # [字典] 动态注入的初始状态，Key 是飞机的 ID
                     "1001": {  # 红方飞机 ID

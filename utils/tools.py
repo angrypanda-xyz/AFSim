@@ -157,12 +157,11 @@ class RAMathUtil:
         返回:
             target_attitude: 期望姿态  pitch/roll/heading/speed
         """
+        heading = np.random.uniform(-1, 1)
         pitch = np.random.uniform(-1, 1)
         roll = np.random.uniform(-1, 1)
-        heading = np.random.uniform(-1, 1)
-        speed = np.random.uniform(-1, 1)
-
-        return np.array([pitch, roll, heading, speed])
+        speed = np.random.uniform(0.2, 1)
+        return np.array([heading, pitch, roll, speed])
 
     @staticmethod
     def plane_to_encode(plane):
@@ -205,6 +204,75 @@ class RAMathUtil:
             raise ValueError(f"不支持的环境类型: '{plane_type}'，"
                              f"支持的类型: 'F-16', 'AIM-9'")
         return data_line
+
+    @staticmethod
+    def calculate_bearing(lat1, lon1, lat2, lon2):
+        """
+        计算(lat1,lon1)到(lat2,lon2)的方位角并归一化到[-180,180)
+
+        参数:
+            lat1,lon1:点1的经纬度
+            lat2,lon2:点2的经纬度
+        返回:
+            点1到点2的方位角，0表示点2在点1正北方，90正东，-90正西，-180正南
+        """
+        # 转弧度
+        lat1 = math.radians(lat1)
+        lon1 = math.radians(lon1)
+        lat2 = math.radians(lat2)
+        lon2 = math.radians(lon2)
+
+        delta_lon = lon2 - lon1
+
+        x = math.sin(delta_lon) * math.cos(lat2)
+        y = (math.cos(lat1) * math.sin(lat2) -
+             math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon))
+
+        bearing = math.degrees(math.atan2(x, y))
+        bearing = (bearing + 180) % 360 - 180
+        return bearing
+
+    @staticmethod
+    def hyperbolic_function(x, x_min, x_max, lam=0.001, tau=0):
+        """
+        双曲惩罚函数，用于奖励函数设计
+
+        参数:
+            x: 自变量
+            x_min:自变量允许的最小值
+            x_max:自变量允许的最大值
+            lam
+            tau
+
+        返回:
+            函数值
+        """
+        term1 = lam * (x - x_min)
+        term2 = math.sqrt((lam ** 2) * ((x - x_min) ** 2) + (tau ** 2))
+        term3 = lam * (x_max - x)
+        term4 = math.sqrt((lam ** 2) * ((x_max - x) ** 2) + (tau ** 2))
+        return term1 - term2 + term3 - term4
+
+    @staticmethod
+    def angle_sin_cos(sin_val, cos_val):
+        """
+        根据正弦值和余弦值计算角度
+
+        参数:
+            sin_val:正弦值
+            cos_valL:余弦值
+        返回:
+            角度:(-pi,pi]
+        """
+        norm = math.hypot(sin_val, cos_val)  # sqrt(sin^2 + cos^2)
+
+        if norm == 0:
+            return 0.0  # 或 raise Exception
+
+        sin_val /= norm
+        cos_val /= norm
+
+        return math.atan2(sin_val, cos_val)
 
 
 # 定义 一个 TSVector3D
