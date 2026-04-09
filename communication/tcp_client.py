@@ -1,4 +1,3 @@
-import math
 import socket
 import json
 import struct
@@ -20,41 +19,67 @@ def check_response(resp):
 
 
 class SimulationClient:
-    def __init__(self, host: str, port: int, env_num=1, steps: int = 1, env_name: str = "control",
+    """
+    现在实现的是一个client会创建一个环境
+    实际上支持一个client创建多个环境，env_id就可用于区分环境，待实现
+    """
+    def __init__(self, host: str, port: int, steps: int = 1, environment: str = "control",
                  log_save: bool = False, tac_view: bool = False):
         self.host = host
         self.port = port
-        self.env_name = env_name
-        self.env_num = env_num
-        self.client_id = str(uuid.uuid4())
-        if env_name == "control":
+        self.environment = environment
+        self.client_id = str(uuid.uuid4())  # 用于环境唯一认证-日志保存
+        if self.environment == "control":
             self.scenario = "testWzz"
             # 升降舵、副翼、方向舵、油门
             # 油门范围是[0,1]，其他范围是[-1,1]
             self.init_actions = [[0.5, 0.0, 0.0, 1.0]]
-            self.target_ids = ["1001"]
 
-        elif env_name == "dogfight":
+        elif self.environment == "dogfight":
             self.scenario = "test1v1"
             # 1V1环境 [副翼, 升降舵, 方向舵, 油门, 开火, 目标]
             self.init_actions = [
                 [-0.05, 0.0, 0.0, 1.0, False, "5001"],
                 [-0.05, 0.0, 0.0, 1.0, False, "1001"]
             ]
-            self.target_ids = ["1001", "5001"]
+
+        elif self.environment == "multi3v3":
+            self.scenario = "test1v1"
+            # 1V1环境 [副翼, 升降舵, 方向舵, 油门, 开火, 目标]
+            self.init_actions = [
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+            ]
+
+        elif self.environment == "multi5v5":
+            self.scenario = "test1v1"
+            # 1V1环境 [副翼, 升降舵, 方向舵, 油门, 开火, 目标]
+            self.init_actions = [
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+                [-0.05, 0.0, 0.0, 1.0, False, ""],
+            ]
         else:
             # unsupported scenarios
-            raise ValueError(f"不支持的环境类型: '{env_name}'，支持的类型: 'control', 'dogfight'")
-        self.init_payload = InitClass.get_parameter(self.env_name, self.env_num)
+            raise ValueError(f"不支持的环境类型: '{self.environment}'，支持的类型: 'control', 'dogfight', 'multi3v3', 'multi5v5'")
+        self.init_payload = InitClass.get_parameter(self.environment)
         self.socket = None
         self.steps = steps
         self.log_save = log_save
         self.tac_view = tac_view
         self.logger = None
         self.viewer = None
-        if self.env_num > 1:
-            # self.log_save = False
-            self.tac_view = False
         self.set_log_view()
 
     def set_log_view(self):
@@ -79,7 +104,7 @@ class SimulationClient:
             self.socket.connect((self.host, self.port))
             resp = self.send_request("init", self.init_payload)
             check_response(resp)  # 检查响应
-            print(f"环境{self.env_name}连接成功")
+            print(f"环境{self.environment}连接成功")
             return resp
         except ConnectionRefusedError:
             raise ConnectionError(
@@ -93,22 +118,41 @@ class SimulationClient:
             raise ConnectionError(f"连接过程中发生未预期错误: {e}")
 
     def get_environment_data(self, actions, env_id=0):
-        if self.env_name == "control":
+        if self.environment == "control":
             step_params = {
                 "steps": self.steps,
                 "actions": {
                     f"{env_id}": {"1001": actions[0]}
                 }
             }
-        elif self.env_name == "dogfight":
+        elif self.environment == "dogfight":
             step_params = {
                 "steps": self.steps,
                 "actions": {
                     f"{env_id}": {"1001": actions[0], "5001": actions[1]}
                 }
             }
+        elif self.environment == "multi3v3":
+            step_params = {
+                "steps": self.steps,
+                "actions": {
+                    f"{env_id}": {"1001": actions[0], "1002": actions[1], "1003": actions[2],
+                                  "5001": actions[3], "5002": actions[4], "5003": actions[5]}
+                }
+            }
+        elif self.environment == "multi5v5":
+            step_params = {
+                "steps": self.steps,
+                "actions": {
+                    f"{env_id}": {"1001": actions[0], "1002": actions[1], "1003": actions[2],
+                                  "1004": actions[3], "1005": actions[4],
+                                  "5001": actions[5], "5002": actions[6], "5003": actions[7],
+                                  "5004": actions[8], "5005": actions[9],
+                                  }
+                }
+            }
         else:
-            raise ValueError(f"不支持的环境类型: '{self.env_name}'，"
+            raise ValueError(f"不支持的环境类型: '{self.environment}'，"
                              f"支持的类型: 'control', 'dogfight'")
         resp = self.send_request("step", step_params)
         check_response(resp)
@@ -130,9 +174,8 @@ class SimulationClient:
 
     def close(self):
         try:
-            for env_id in range(self.env_num):
-                resp = self.send_request("close", {"env_ids": [env_id]})
-                check_response(resp)
+            resp = self.send_request("close", {"env_ids": [0]})
+            check_response(resp)
         finally:
             if self.socket:
                 self.socket.close()
@@ -164,37 +207,33 @@ class SimulationClient:
 
 
 if __name__ == "__main__":
-    env_name = "control"
-    # env_name = "dogfight"
-    max_fps = -100
-    max_num = 0
-    for x in range(4):
-        env_num = x + 1
-        max_steps = 1020
-        simulation = SimulationClient(env_num=env_num, host='127.0.0.1', port=8888, steps=20, env_name=env_name,
-                                      log_save=True)
-        r = simulation.connection()
-        print(r)
-        # print(observation)
-        if env_name == "control":
-            action = [-0.2, 0.0, 0.0, 1.0]
-            actions = []
-            for _ in range(env_num):
-                actions.append(action)
-        elif env_name == "dogfight":
-            actions = [[-0.2, 0.0, 0.0, 1.0, False, "1001"], [-0.2, 0.0, 0.0, 1.0, False, "5001"]]
-        else:
-            raise ValueError(f"不支持的环境类型: '{env_name}'，"
-                             f"支持的类型: 'control', 'dogfight'")
-        start_time = time.time()
-        for i in range(math.ceil(max_steps / env_num)):
-            simulation.get_environment_data(actions, env_id=0)
-        end_time = time.time()
-        print("总耗时:", end_time - start_time, "秒")
-        print("平均每步:", (end_time - start_time) / (math.ceil(max_steps / env_num) * env_num), "秒")
-        print("FPS:", (math.ceil(max_steps / env_num) * env_num) / (end_time - start_time))
-        if max_fps < (math.ceil(max_steps / env_num) * env_num) / (end_time - start_time):
-            max_fps = (math.ceil(max_steps / env_num) * env_num) / (end_time - start_time)
-            max_num = env_num
-        print(max_fps, max_num)
-        simulation.close()
+    environment_name = "multi5v5"
+    # environment_name = "multi3v3"
+    # environment_name = "control"
+    # environment_name = "dogfight"
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=20,
+                                  environment=environment_name, log_save=True)
+    r = simulation.connection()
+    if environment_name == "control":
+        actions = [[-0.2, 0.0, 0.0, 1.0]]
+    elif environment_name == "dogfight":
+        actions = [[-0.2, 0.0, 0.0, 1.0, False, "1001"], [-0.2, 0.0, 0.0, 1.0, False, "5001"]]
+    elif environment_name == "multi3v3":
+        actions = [[-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""]]
+    elif environment_name == "multi5v5":
+        actions = [[-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""],
+                   [-0.05, 0.0, 0.0, 1.0, False, ""], [-0.05, 0.0, 0.0, 1.0, False, ""]]
+    else:
+        raise ValueError(f"不支持的环境类型: '{environment_name}'，"
+                         f"支持的类型: 'control', 'dogfight', 'multi3v3', 'multi5v5'")
+    start_time = time.time()
+    for x in range(1000):
+        simulation.get_environment_data(actions, env_id=0)
+    end_time = time.time()
+    print("总耗时:", end_time - start_time, "秒")
+    simulation.close()
