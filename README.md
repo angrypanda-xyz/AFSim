@@ -19,7 +19,8 @@ AFSim/
 │ ├── aircraf_control/ # 飞行器控制环境
 │ ├── dogfight_1v1/ # 1v1空战对抗环境
 │ └── point_tracking/ # 点跟踪环境
-├── training/ # 训练模块
+├── implement/ # 每个人的训练模块
+├── training/ # 训练示例
 │ ├── aircraf_control_traing/ # 飞行器控制训练
 │ ├── dogfight_1v1_traing/ # 空战对抗训练
 │ └── point_tracking_traing/ # 点跟踪训练
