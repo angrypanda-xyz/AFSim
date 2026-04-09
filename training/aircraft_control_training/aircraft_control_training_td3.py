@@ -1,12 +1,13 @@
 from stable_baselines3 import PPO, TD3
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from communication.tcp_client import SimulationClient
 from environments.aircraft_control.aircraft_control_env import AircraftControlEnv
 import numpy as np
 import os
+from functools import partial
 
 # 创建 CheckpointCallback
 # save_freq=10000 表示每 10000 步保存一次模型
@@ -19,17 +20,19 @@ checkpoint_callback = CheckpointCallback(
 )
 
 
-def make_env(log_save=False):
-    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=6, env_name="control", log_save=log_save)
-    environment = AircraftControlEnv(simulation_client=simulation, max_steps=400, random_init=True)
-    return environment
+def make_env(steps, max_steps, log_save=False):
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=steps, environment="control", log_save=log_save)
+    environment = AircraftControlEnv(simulation_client=simulation, max_steps=max_steps, random_init=True)
+    return Monitor(environment)
 
 
 if __name__ == "__main__":
-    train = True
-    continue_training = True
+    train = False
+    continue_training = False
     if train:
-        env = DummyVecEnv([make_env])
+        env_fns = [partial(make_env, steps=20, max_steps=1000, log_save=False) for _ in range(5)]
+        env = SubprocVecEnv(env_fns)
+        # env = DummyVecEnv([make_env])
         # 获取动作空间的维度
         n_actions = env.action_space.shape[0]
 
@@ -71,8 +74,8 @@ if __name__ == "__main__":
             callback=checkpoint_callback  # 关键：将回调传入 learn 方法
         )
     else:
-        env = make_env(log_save=True)
-        model = TD3.load("./models/td3_control_3900000_steps.zip", env=env)
+        env = make_env(steps=20, max_steps=1000, log_save=True)
+        model = TD3.load("./models/td3_control_500_steps.zip", env=env)
         # replay_buffer_path = "./models/td3_control_replay_buffer_4000000_steps.pkl"
         # # 加载回放缓冲区
         # if os.path.exists(replay_buffer_path):
