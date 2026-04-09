@@ -1,21 +1,24 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 from communication.tcp_client import SimulationClient
 from environments.dogfight_1v1.dogfight_1v1_env import DogFight1v1Env
+from functools import partial
 
 
-def make_env(log_save=False):
-    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=6, env_name="dogfight", log_save=log_save)
-    environment = DogFight1v1Env(simulation_client=simulation, max_steps=200, random_init=True)
-    return environment
+def make_env(steps, max_steps, log_save=False):
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=steps, environment="control", log_save=log_save)
+    environment = DogFight1v1Env(simulation_client=simulation, max_steps=max_steps, random_init=True)
+    return Monitor(environment)
 
 
 if __name__ == "__main__":
     train = True
     if train:
-        env = DummyVecEnv([make_env])
+        env_fns = [partial(make_env, steps=20, max_steps=1000, log_save=False) for _ in range(5)]
+        env = SubprocVecEnv(env_fns)
+        # env = DummyVecEnv([make_env])
         model = PPO(
             "MlpPolicy",
             env,
