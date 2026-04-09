@@ -1,12 +1,9 @@
-from pyexpat import features
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
-from torch.cuda import device
 from communication.tcp_client import SimulationClient
 from environments.point_tracking.point_tracking_env import PointTrackingEnv
-from typing import Optional
 import datetime
 import os
 import torch.nn as nn
