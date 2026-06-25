@@ -6,3 +6,7 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+
+**/__pycache__/
+dogfight_1v1_tensorboard/

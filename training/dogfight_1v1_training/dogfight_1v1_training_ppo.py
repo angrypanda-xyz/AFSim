@@ -8,7 +8,7 @@ from functools import partial
 
 
 def make_env(steps, max_steps, log_save=False):
-    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=steps, environment="control", log_save=log_save)
+    simulation = SimulationClient(host='127.0.0.1', port=8888, steps=steps, environment="dogfight", log_save=log_save)
     environment = DogFight1v1Env(simulation_client=simulation, max_steps=max_steps, random_init=True)
     return Monitor(environment)
 
