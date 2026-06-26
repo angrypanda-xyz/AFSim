@@ -36,7 +36,7 @@ if __name__ == "__main__":
         )
         for i in range(10):
             # 训练
-            model.learn(total_timesteps=10)
+            model.learn(total_timesteps=1000000)
             model.save("ppo_dogfight_1v1")
     else:
         # 测试
